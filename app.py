@@ -9,7 +9,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Hide all Streamlit UI chrome for a clean full-screen app
 st.markdown("""
 <style>
     #MainMenu, header, footer,
@@ -20,23 +19,12 @@ st.markdown("""
         display: none !important;
         visibility: hidden !important;
     }
-    .stApp {
-        overflow: hidden;
-    }
-    .block-container {
-        padding: 0 !important;
-        max-width: 100% !important;
-    }
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        padding: 0 !important;
-    }
-    iframe {
-        border: none !important;
-        width: 100% !important;
-    }
+    .stApp { overflow: hidden; }
+    .block-container { padding: 0 !important; max-width: 100% !important; }
+    [data-testid="stVerticalBlockBorderWrapper"] { padding: 0 !important; }
+    iframe { border: none !important; width: 100% !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Load and render the full HTML app
 html_content = Path("kickoff.html").read_text(encoding="utf-8")
 components.html(html_content, height=920, scrolling=False)
