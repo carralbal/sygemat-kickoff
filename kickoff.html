@@ -31,44 +31,34 @@
 const{useState,useRef,useEffect,createContext,useContext,useCallback}=React;
 const O="#F26522";
 
-/* ═══ SUPABASE CONFIG ═══ */
-const SB_URL="https://pybmdezxgradnoqsbrie.supabase.co";
-const SB_KEY="sb_publishable_Du5_sFl4K6MuItQTQRbylg_SLkFKhuy";
-const SB_HEADERS={"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json","Prefer":"return=representation"};
+/* ═══ SUPABASE ═══ */
+const SB="https://pybmdezxgradnoqsbrie.supabase.co";
+const SK="sb_publishable_Du5_sFl4K6MuItQTQRbylg_SLkFKhuy";
+const H={"apikey":SK,"Authorization":`Bearer ${SK}`,"Content-Type":"application/json","Prefer":"return=representation"};
 
 async function sbCreate(data,checks,cur){
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/kickoffs`,{method:"POST",headers:SB_HEADERS,
-      body:JSON.stringify({client_name:data.clientName||"Sin nombre",data,checks,current_step:cur})});
+  try{const r=await fetch(`${SB}/rest/v1/kickoffs`,{method:"POST",headers:H,
+    body:JSON.stringify({client_name:data.clientName||"Sin nombre",data,checks,current_step:cur})});
     const rows=await r.json();return rows[0]?.id||null;
-  }catch(e){console.error("sbCreate",e);return null;}
-}
-async function sbUpdate(id,data,checks,cur){
-  try{
-    await fetch(`${SB_URL}/rest/v1/kickoffs?id=eq.${id}`,{method:"PATCH",headers:SB_HEADERS,
-      body:JSON.stringify({client_name:data.clientName||"Sin nombre",data,checks,current_step:cur,updated_at:new Date().toISOString()})});
-  }catch(e){console.error("sbUpdate",e);}
-}
-async function sbLoad(id){
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/kickoffs?id=eq.${id}&select=*`,{headers:SB_HEADERS});
-    const rows=await r.json();return rows[0]||null;
-  }catch(e){console.error("sbLoad",e);return null;}
-}
-async function sbList(){
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/kickoffs?select=id,client_name,updated_at&order=updated_at.desc&limit=20`,{headers:SB_HEADERS});
-    return await r.json();
-  }catch(e){console.error("sbList",e);return[];}
-}
-async function sbDelete(id){
-  try{await fetch(`${SB_URL}/rest/v1/kickoffs?id=eq.${id}`,{method:"DELETE",headers:SB_HEADERS});}catch(e){}
-}
+  }catch(e){console.error(e);return null;}}
 
-/* local ref only for current session kickoff id */
-const LK="sygemat_kickoff_ref";
-function getRef(){try{return JSON.parse(localStorage.getItem(LK));}catch(e){return null;}}
-function setRef(o){try{localStorage.setItem(LK,JSON.stringify(o));}catch(e){}}
+async function sbUpdate(id,data,checks,cur){
+  try{await fetch(`${SB}/rest/v1/kickoffs?id=eq.${id}`,{method:"PATCH",headers:H,
+    body:JSON.stringify({client_name:data.clientName||"Sin nombre",data,checks,current_step:cur,updated_at:new Date().toISOString()})});
+  }catch(e){console.error(e);}}
+
+async function sbLoad(id){
+  try{const r=await fetch(`${SB}/rest/v1/kickoffs?id=eq.${id}&select=*`,{headers:H});
+    const rows=await r.json();return rows[0]||null;
+  }catch(e){return null;}}
+
+async function sbList(){
+  try{const r=await fetch(`${SB}/rest/v1/kickoffs?select=id,client_name,updated_at&order=updated_at.desc&limit=20`,{headers:H});
+    return await r.json();
+  }catch(e){return[];}}
+
+async function sbDelete(id){
+  try{await fetch(`${SB}/rest/v1/kickoffs?id=eq.${id}`,{method:"DELETE",headers:H});}catch(e){}}
 
 /* ═══ THEMES ═══ */
 const T={
@@ -84,6 +74,7 @@ const T={
     togBg:"rgba(255,255,255,0.06)",logoTxt:"#fff",cardHov:"rgba(255,255,255,0.02)",
     selBg:"rgba(255,255,255,0.05)",selColor:"#fff",
     saveBg:"rgba(16,185,129,0.1)",saveBd:"rgba(16,185,129,0.2)",saveColor:"#10B981",
+    modalBg:"#111",
   },
   light:{bg:"#F5F5F0",bgSb:"#FFFFFF",border:"rgba(0,0,0,0.06)",borderInput:"rgba(0,0,0,0.12)",
     text:"#1A1A1A",textHi:"#000",textMd:"rgba(0,0,0,0.65)",textLo:"rgba(0,0,0,0.4)",textMute:"rgba(0,0,0,0.25)",
@@ -97,6 +88,7 @@ const T={
     togBg:"rgba(0,0,0,0.06)",logoTxt:"#1A1A1A",cardHov:"rgba(0,0,0,0.02)",
     selBg:"#fff",selColor:"#1a1a1a",
     saveBg:"rgba(16,185,129,0.06)",saveBd:"rgba(16,185,129,0.15)",saveColor:"#10B981",
+    modalBg:"#fff",
   },
 };
 const Ctx=createContext();const useT=()=>useContext(Ctx);
@@ -119,7 +111,7 @@ const STEPS=[
     {key:"perfilCliente",label:"Perfil del cliente",type:"select",options:["","FLUYE","ACOMPAÑA","RESISTE"]},
     {key:"implementador",label:"Implementador asignado (SYGEMAT)",type:"text",placeholder:"Nombre del implementador..."},
     {key:"vendido",label:"¿Qué se vendió y con qué alcance?",type:"textarea",placeholder:"Módulos, usuarios, integraciones..."},
-    {key:"fueraAlcance",label:"¿Qué NO está incluido en esta etapa?",type:"textarea",placeholder:"Funcionalidades, módulos o integraciones que quedan para más adelante..."},
+    {key:"fueraAlcance",label:"¿Qué NO está incluido en esta etapa?",type:"textarea",placeholder:"Funcionalidades que quedan para más adelante..."},
     {key:"compromisos",label:"Compromisos comerciales ya instalados",type:"textarea",placeholder:"Plazos, funcionalidades, condiciones..."},
     {key:"dificultadVenta",label:"¿Hubo alguna dificultad durante la venta?",type:"textarea",placeholder:"Objeciones, idas y vueltas, temas sensibles..."},
   ]},
@@ -146,74 +138,85 @@ const STEPS=[
     {key:"cadencia",label:"Cadencia de seguimiento acordada",type:"select",options:["Semanal","Bisemanal","Según necesidad"]},
   ]},
   {phase:"kickoff",title:"Parte operativa",content:"Ahora vamos a la parte concreta. Acá es donde relevamos cómo trabajan hoy, definimos la migración de datos, configuración inicial, agenda de capacitación y los próximos pasos inmediatos.\n\nEsta parte la manejamos con un proceso probado y los vamos guiando en cada paso.",phrase:"Ahora sí, vamos a lo concreto. Esto es lo que necesitamos para arrancar.",bullets:["Esta sección sigue el proceso de implementación estándar de SYGEMAT","Relevar el proceso actual del cliente (cómo trabajan hoy)","Definir alcance de migración de datos","Configuración inicial del sistema","Agenda de capacitación y cronograma","Próximos pasos inmediatos con fechas"],fields:[
-    {key:"obsProcesoActual",label:"Observaciones sobre el proceso actual del cliente",type:"textarea",placeholder:"Cómo trabajan hoy, qué sistema usan, qué hacen manual, particularidades del negocio..."},
+    {key:"obsProcesoActual",label:"Observaciones sobre el proceso actual del cliente",type:"textarea",placeholder:"Cómo trabajan hoy, qué sistema usan, qué hacen manual, particularidades..."},
   ]},
   {phase:"cierre",title:"Cierre del kickoff",content:"Queremos que todos se vayan con claridad sobre objetivo, forma de trabajo y próximos pasos. Después de la reunión vamos a bajar una minuta con acuerdos, pendientes y responsables.",phrase:"Un buen kickoff no termina cuando se corta la reunión. Termina cuando todos saben exactamente qué sigue.",fields:[
     {key:"goLive",label:"Fecha objetivo de go-live",type:"date",placeholder:""},
     {key:"acuerdos",label:"Acuerdos cerrados",type:"textarea",placeholder:"Lo que quedó definido hoy..."},
     {key:"pendientes",label:"Pendientes con responsable",type:"textarea",placeholder:"Tarea → Quién → Para cuándo"},
     {key:"proximoPaso",label:"Próximo paso inmediato",type:"textarea",placeholder:"¿Qué se hace mañana?"},
-    {key:"notasCierre",label:"Observaciones generales del kickoff",type:"textarea",placeholder:"Cualquier nota, comentario o tema que haya surgido durante la reunión..."},
+    {key:"notasCierre",label:"Observaciones generales del kickoff",type:"textarea",placeholder:"Cualquier nota o tema que haya surgido..."},
   ]},
   {phase:"cierre",title:"Checklist final",content:"Antes de dar por cerrado el kickoff, verificá que no quedó nada suelto.",phrase:"Si no queda claro el problema, el compromiso y el siguiente paso, el kickoff quedó incompleto.",checklist:["Se recuperaron y validaron los dolores del cliente","El cliente entiende el sentido estratégico del proyecto","Quedó claro qué compromiso esperamos del cliente","Se definieron roles: super user, carga de artículos y contable","Se marcaron objetivos concretos de corto plazo (3 semanas)","Se acordó la fecha de go-live","Se definió la cadencia de seguimiento (reuniones periódicas)","Hay próximos pasos con responsable y fecha","Se acordó cómo y cuándo será la próxima reunión","Se va a enviar minuta con acuerdos y pendientes"]},
 ];
 const PH=[{key:"prep",label:"Handoff Ventas"},{key:"kickoff",label:"Kickoff"},{key:"cierre",label:"Cierre"}];
 
+/* ═══ HELPER: default goLive ═══ */
+function calcGoLive(){
+  const d=new Date();d.setDate(d.getDate()+21);
+  const day=d.getDay();if(day===0)d.setDate(d.getDate()+1);if(day===6)d.setDate(d.getDate()+2);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
 /* ═══ APP ═══ */
 function App(){
   const[cur,setCur]=useState(0);
-  const[data,setData]=useState({});
+  const[data,setData]=useState({goLive:calcGoLive(),cadencia:"Semanal"});
   const[checks,setChecks]=useState({});
-  const[dark,setDark]=useState(false); /* ← DEFAULT LIGHT */
+  const[dark,setDark]=useState(false);
   const[sbOpen,setSbOpen]=useState(true);
   const[sbMobile,setSbMobile]=useState(false);
   const[collapsed,setCollapsed]=useState({});
   const[kickoffId,setKickoffId]=useState(null);
   const[saving,setSaving]=useState(false);
-  const[loaded,setLoaded]=useState(false);
   const[showList,setShowList]=useState(false);
   const[kickoffList,setKickoffList]=useState([]);
+  const[ready,setReady]=useState(false);
   const ref=useRef(null);
   const saveTimer=useRef(null);
   const t=T[dark?"dark":"light"];
   const st=STEPS[cur],pct=((cur+1)/STEPS.length)*100;
   const ph=PH.find(p=>p.key===st.phase),Ico=IC[st.phase];
 
-  /* Load on mount */
+  /* ── On mount: check Supabase for existing kickoffs ── */
   useEffect(()=>{
-    const saved=getRef();
-    if(saved?.id){
-      sbLoad(saved.id).then(row=>{
-        if(row){
-          setData(row.data||{});setChecks(row.checks||{});setCur(row.current_step||0);
-          setKickoffId(row.id);if(saved.dark!==undefined)setDark(saved.dark);
+    (async()=>{
+      const list=await sbList();
+      if(list&&list.length>0){
+        /* Filter out empty "Sin nombre" records with no real data */
+        const real=list.filter(k=>{
+          if(k.client_name&&k.client_name!=="Sin nombre")return true;
+          return false;
+        });
+        if(real.length>0){
+          setKickoffList(real);setShowList(true);
         }
-        setLoaded(true);
-      });
-    }else{setLoaded(true);}
+      }
+      setReady(true);
+    })();
   },[]);
 
-  /* Auto-save with debounce */
-  const doSave=useCallback(async(d,ch,c)=>{
-    setSaving(true);
-    if(kickoffId){
-      await sbUpdate(kickoffId,d,ch,c);
-    }else{
-      const newId=await sbCreate(d,ch,c);
-      if(newId){setKickoffId(newId);setRef({id:newId,dark});}
-    }
-    setSaving(false);
-  },[kickoffId,dark]);
+  /* ── Auto-save to Supabase (debounced, only if has real data) ── */
+  const hasRealData=useCallback((d)=>{
+    return d.clientName||d.contactName||d.dolor1||d.motivoCompra||d.acuerdos;
+  },[]);
 
   useEffect(()=>{
-    if(!loaded)return;
+    if(!ready)return;
+    if(!hasRealData(data))return;
     if(saveTimer.current)clearTimeout(saveTimer.current);
-    saveTimer.current=setTimeout(()=>doSave(data,checks,cur),800);
-    /* also save ref locally */
-    if(kickoffId)setRef({id:kickoffId,dark});
-  },[data,checks,cur,loaded]);
+    saveTimer.current=setTimeout(async()=>{
+      setSaving(true);
+      if(kickoffId){
+        await sbUpdate(kickoffId,data,checks,cur);
+      }else{
+        const newId=await sbCreate(data,checks,cur);
+        if(newId)setKickoffId(newId);
+      }
+      setSaving(false);
+    },1200);
+  },[data,checks,cur,ready]);
 
-  useEffect(()=>{if(kickoffId)setRef({id:kickoffId,dark});},[dark]);
   useEffect(()=>{ref.current?.scrollTo({top:0,behavior:"smooth"});},[cur]);
 
   const v=k=>data[k]||"",up=(k,val)=>setData(d=>({...d,[k]:val}));
@@ -222,31 +225,30 @@ function App(){
   const total=st.checklist?st.checklist.length:0;
   const prof=data.perfilCliente||"";
 
-  /* Go-live auto-set */
-  useEffect(()=>{
-    if(!data.goLive&&loaded){
-      const d=new Date();d.setDate(d.getDate()+21);
-      const day=d.getDay();if(day===0)d.setDate(d.getDate()+1);if(day===6)d.setDate(d.getDate()+2);
-      up("goLive",`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
-    }
-    if(!data.cadencia&&loaded){up("cadencia","Semanal");}
-  },[loaded]);
-
   const togglePhase=(k)=>setCollapsed(c=>({...c,[k]:!c[k]}));
 
   const handleNew=()=>{
-    if(confirm("¿Limpiar datos y empezar un nuevo kickoff?")){
-      setData({});setChecks({});setCur(0);setKickoffId(null);setRef(null);
+    if(confirm("¿Empezar un nuevo kickoff?")){
+      setData({goLive:calcGoLive(),cadencia:"Semanal"});setChecks({});setCur(0);setKickoffId(null);
     }
   };
-
   const handleLoadList=async()=>{
-    const list=await sbList();setKickoffList(list);setShowList(true);
+    const list=await sbList();
+    const real=list.filter(k=>k.client_name&&k.client_name!=="Sin nombre");
+    setKickoffList(real);setShowList(true);
   };
   const handleLoadKickoff=async(id)=>{
     const row=await sbLoad(id);
-    if(row){setData(row.data||{});setChecks(row.checks||{});setCur(row.current_step||0);setKickoffId(row.id);setRef({id:row.id,dark});}
+    if(row){setData(row.data||{});setChecks(row.checks||{});setCur(row.current_step||0);setKickoffId(row.id);}
     setShowList(false);
+  };
+  const handleDeleteKickoff=async(e,id)=>{
+    e.stopPropagation();
+    if(confirm("¿Eliminar este kickoff?")){
+      await sbDelete(id);
+      setKickoffList(l=>l.filter(k=>k.id!==id));
+      if(kickoffId===id){setKickoffId(null);setData({goLive:calcGoLive(),cadencia:"Semanal"});setChecks({});setCur(0);}
+    }
   };
 
   const ib={width:"100%",padding:"13px 18px",background:t.inputBg,border:`1px solid ${t.borderInput}`,borderRadius:10,color:t.text,fontSize:16,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"all 0.2s"};
@@ -256,28 +258,36 @@ function App(){
     <Ctx.Provider value={t}>
     <div style={{display:"flex",height:"100vh",background:t.bg,color:t.text,fontFamily:"'DM Sans',sans-serif",overflow:"hidden",transition:"background 0.3s,color 0.3s"}}>
 
-      {sbMobile&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:90,backdropFilter:"blur(6px)"}} onClick={()=>setSbMobile(false)}/>}
+      {sbMobile&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:90}} onClick={()=>setSbMobile(false)}/>}
 
-      {/* List modal */}
+      {/* ═══ LIST MODAL ═══ */}
       {showList&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)"}} onClick={()=>setShowList(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:dark?"#111":"#fff",borderRadius:16,padding:28,width:420,maxHeight:"70vh",overflowY:"auto",border:`1px solid ${t.border}`}}>
-            <h3 style={{fontSize:18,fontWeight:700,marginBottom:16,color:t.textHi}}>Kickoffs guardados</h3>
-            {kickoffList.length===0&&<p style={{color:t.textLo,fontSize:14}}>No hay kickoffs guardados.</p>}
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)"}} onClick={()=>setShowList(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:t.modalBg,borderRadius:16,padding:28,width:440,maxHeight:"75vh",overflowY:"auto",border:`1px solid ${t.border}`,boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <h3 style={{fontSize:20,fontWeight:700,marginBottom:4,color:t.textHi}}>📂 Kickoffs guardados</h3>
+            <p style={{fontSize:13,color:t.textLo,marginBottom:20}}>Seleccioná uno para continuar o creá uno nuevo.</p>
+            {kickoffList.length===0&&<p style={{color:t.textLo,fontSize:14,padding:"20px 0",textAlign:"center"}}>No hay kickoffs guardados todavía.</p>}
             {kickoffList.map(k=>(
               <button key={k.id} onClick={()=>handleLoadKickoff(k.id)} style={{
                 display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",
-                padding:"12px 16px",background:t.cardHov,border:`1px solid ${t.border}`,
+                padding:"14px 16px",background:t.cardHov,border:`1px solid ${t.border}`,
                 borderRadius:10,marginBottom:8,textAlign:"left",transition:"all 0.15s",
               }}>
                 <div>
-                  <div style={{fontSize:15,fontWeight:600,color:t.textHi}}>{k.client_name||"Sin nombre"}</div>
-                  <div style={{fontSize:12,color:t.textLo,marginTop:2}}>{new Date(k.updated_at).toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+                  <div style={{fontSize:16,fontWeight:600,color:t.textHi}}>{k.client_name}</div>
+                  <div style={{fontSize:12,color:t.textLo,marginTop:3}}>{new Date(k.updated_at).toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
                 </div>
-                <span style={{fontSize:12,color:O,fontWeight:600}}>Abrir →</span>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:12,color:O,fontWeight:600}}>Abrir →</span>
+                  <span onClick={(e)=>handleDeleteKickoff(e,k.id)} style={{fontSize:16,color:t.textMute,padding:"2px 6px",borderRadius:4}} title="Eliminar">🗑</span>
+                </div>
               </button>
             ))}
-            <button onClick={()=>setShowList(false)} style={{marginTop:12,padding:"8px 16px",background:t.togBg,border:"none",borderRadius:8,fontSize:13,color:t.textLo,fontWeight:500,width:"100%"}}>Cerrar</button>
+            <button onClick={()=>{setShowList(false);handleNew();}} style={{
+              marginTop:12,padding:"12px 16px",background:O,border:"none",borderRadius:10,
+              fontSize:14,fontWeight:600,color:"#fff",width:"100%",
+            }}>✚ Nuevo kickoff</button>
+            <button onClick={()=>setShowList(false)} style={{marginTop:8,padding:"10px 16px",background:t.togBg,border:"none",borderRadius:10,fontSize:13,color:t.textLo,fontWeight:500,width:"100%"}}>Cerrar</button>
           </div>
         </div>
       )}
@@ -334,7 +344,7 @@ function App(){
               <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",background:t.cliBg,border:`1px solid ${t.cliBd}`,borderRadius:8,fontSize:14,fontWeight:600,color:t.textMd,marginBottom:prof?8:0}}>
                 <span style={{fontSize:16}}>🏗</span>{data.clientName}
               </div>)}
-            {prof&&(
+            {prof&&profColor&&(
               <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:profColor+"12",border:`1px solid ${profColor}25`,borderRadius:8,fontSize:12,fontWeight:700,letterSpacing:1,color:profColor}}>
                 <span style={{fontSize:14}}>{prof==="FLUYE"?"🟢":prof==="ACOMPAÑA"?"🟡":"🔴"}</span>{prof}
               </div>)}
@@ -352,10 +362,11 @@ function App(){
           <div style={{flex:1,height:3,background:t.progBg,borderRadius:3,overflow:"hidden"}}>
             <div style={{height:"100%",borderRadius:3,background:O,transition:"width 0.5s cubic-bezier(.4,0,.2,1)",width:`${pct}%`}}/>
           </div>
-          {/* Save indicator */}
-          <div style={{display:"flex",alignItems:"center",gap:6,padding:"3px 10px",borderRadius:12,background:t.saveBg,border:`1px solid ${t.saveBd}`,fontSize:11,fontWeight:600,color:t.saveColor,opacity:saving?1:0.5,transition:"opacity 0.3s"}}>
-            {saving?"Guardando...":"✓ Guardado"}
-          </div>
+          {kickoffId&&(
+            <div style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:12,background:t.saveBg,border:`1px solid ${t.saveBd}`,fontSize:11,fontWeight:600,color:t.saveColor,opacity:saving?1:0.6,transition:"opacity 0.3s"}}>
+              {saving?"Guardando...":"✓ Guardado"}
+            </div>
+          )}
           <span style={{fontSize:13,color:t.textLo,fontWeight:600,letterSpacing:.5,flexShrink:0}}>{cur+1}/{STEPS.length}</span>
         </div>
 
@@ -430,12 +441,9 @@ function App(){
                     backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' fill='none' stroke-width='1.5'/%3E%3C/svg%3E\")",
                     backgroundRepeat:"no-repeat",backgroundPosition:"right 18px center",paddingRight:44,
                   }}>
-                    <option value="">Seleccionar...</option>
-                    {f.key==="perfilCliente"?(<>
-                      <option value="FLUYE">🟢 FLUYE — Avanzó sin fricciones</option>
-                      <option value="ACOMPAÑA">🟡 ACOMPAÑA — Colabora pero hay que guiarlo</option>
-                      <option value="RESISTE">🔴 RESISTE — Mostró resistencia o trabas</option>
-                    </>):(f.options?.filter(Boolean).map(opt=>(<option key={opt} value={opt}>{opt}</option>)))}
+                    {f.key==="perfilCliente"?(<><option value="">Seleccionar...</option><option value="FLUYE">🟢 FLUYE — Avanzó sin fricciones</option><option value="ACOMPAÑA">🟡 ACOMPAÑA — Colabora pero hay que guiarlo</option><option value="RESISTE">🔴 RESISTE — Mostró resistencia o trabas</option></>):(
+                      f.options?.map(opt=>(<option key={opt} value={opt}>{opt}</option>))
+                    )}
                   </select>
                 ):f.type==="date"?(
                   <input type="date" style={{...ib,cursor:"pointer"}} value={v(f.key)} onChange={e=>up(f.key,e.target.value)}
