@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SYGEMAT — Guía de Kickoff</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23F26522'/><text x='50' y='66' text-anchor='middle' fill='white' font-size='48' font-weight='700'>S</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body,#root{height:100%;overflow:hidden;}
+  body{font-family:'DM Sans','Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;}
+  ::selection{background:rgba(242,101,34,0.3);}
+  ::-webkit-scrollbar{width:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{border-radius:10px;}
+  button{cursor:pointer;font-family:inherit;}
+  textarea:focus,input:focus{outline:none;}
+  select{font-family:inherit;}
+  @media(max-width:900px){.sb{display:none!important;}.mobtn{display:flex!important;}.cnt{padding:28px 22px 100px!important;}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useRef,useEffect,createContext,useContext,useCallback}=React;
+const O="#F26522";
+
+/* ═══ SUPABASE CONFIG ═══ */
+const SB_URL="https://pybmdezxgradnoqsbrie.supabase.co";
+const SB_KEY="sb_publishable_Du5_sFl4K6MuItQTQRbylg_SLkFKhuy";
+const SB_HEADERS={"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json","Prefer":"return=representation"};
+
+async function sbCreate(data,checks,cur){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kickoffs`,{method:"POST",headers:SB_HEADERS,
+      body:JSON.stringify({client_name:data.clientName||"Sin nombre",data,checks,current_step:cur})});
+    const rows=await r.json();return rows[0]?.id||null;
+  }catch(e){console.error("sbCreate",e);return null;}
+}
+async function sbUpdate(id,data,checks,cur){
+  try{
+    await fetch(`${SB_URL}/rest/v1/kickoffs?id=eq.${id}`,{method:"PATCH",headers:SB_HEADERS,
+      body:JSON.stringify({client_name:data.clientName||"Sin nombre",data,checks,current_step:cur,updated_at:new Date().toISOString()})});
+  }catch(e){console.error("sbUpdate",e);}
+}
+async function sbLoad(id){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kickoffs?id=eq.${id}&select=*`,{headers:SB_HEADERS});
+    const rows=await r.json();return rows[0]||null;
+  }catch(e){console.error("sbLoad",e);return null;}
+}
+async function sbList(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/kickoffs?select=id,client_name,updated_at&order=updated_at.desc&limit=20`,{headers:SB_HEADERS});
+    return await r.json();
+  }catch(e){console.error("sbList",e);return[];}
+}
+async function sbDelete(id){
+  try{await fetch(`${SB_URL}/rest/v1/kickoffs?id=eq.${id}`,{method:"DELETE",headers:SB_HEADERS});}catch(e){}
+}
+
+/* local ref only for current session kickoff id */
+const LK="sygemat_kickoff_ref";
+function getRef(){try{return JSON.parse(localStorage.getItem(LK));}catch(e){return null;}}
+function setRef(o){try{localStorage.setItem(LK,JSON.stringify(o));}catch(e){}}
+
+/* ═══ THEMES ═══ */
+const T={
+  dark:{bg:"#000",bgSb:"#060606",border:"rgba(255,255,255,0.05)",borderInput:"rgba(255,255,255,0.08)",
+    text:"#fff",textHi:"#fff",textMd:"rgba(255,255,255,0.7)",textLo:"rgba(255,255,255,0.4)",textMute:"rgba(255,255,255,0.25)",
+    textSbAc:"#fff",textSbDn:"rgba(255,255,255,0.3)",textSb:"rgba(255,255,255,0.55)",
+    phraseBg:"rgba(242,101,34,0.04)",pillBg:"rgba(242,101,34,0.06)",pillBd:"rgba(242,101,34,0.12)",
+    dolBg:"rgba(242,101,34,0.035)",dolBd:"rgba(242,101,34,0.1)",
+    bulBg:"rgba(242,101,34,0.08)",bulBd:"rgba(242,101,34,0.16)",
+    chkBd:"rgba(255,255,255,0.14)",inputBg:"rgba(255,255,255,0.03)",focusBd:"rgba(242,101,34,0.5)",
+    progBg:"rgba(255,255,255,0.05)",sbAcBg:"rgba(242,101,34,0.07)",
+    cliBg:"rgba(242,101,34,0.06)",cliBd:"rgba(242,101,34,0.12)",
+    togBg:"rgba(255,255,255,0.06)",logoTxt:"#fff",cardHov:"rgba(255,255,255,0.02)",
+    selBg:"rgba(255,255,255,0.05)",selColor:"#fff",
+    saveBg:"rgba(16,185,129,0.1)",saveBd:"rgba(16,185,129,0.2)",saveColor:"#10B981",
+  },
+  light:{bg:"#F5F5F0",bgSb:"#FFFFFF",border:"rgba(0,0,0,0.06)",borderInput:"rgba(0,0,0,0.12)",
+    text:"#1A1A1A",textHi:"#000",textMd:"rgba(0,0,0,0.65)",textLo:"rgba(0,0,0,0.4)",textMute:"rgba(0,0,0,0.25)",
+    textSbAc:"#1A1A1A",textSbDn:"rgba(0,0,0,0.3)",textSb:"rgba(0,0,0,0.55)",
+    phraseBg:"rgba(242,101,34,0.04)",pillBg:"rgba(242,101,34,0.06)",pillBd:"rgba(242,101,34,0.12)",
+    dolBg:"rgba(242,101,34,0.04)",dolBd:"rgba(242,101,34,0.1)",
+    bulBg:"rgba(242,101,34,0.06)",bulBd:"rgba(242,101,34,0.14)",
+    chkBd:"rgba(0,0,0,0.15)",inputBg:"#FFFFFF",focusBd:"rgba(242,101,34,0.5)",
+    progBg:"rgba(0,0,0,0.06)",sbAcBg:"rgba(242,101,34,0.06)",
+    cliBg:"rgba(242,101,34,0.05)",cliBd:"rgba(242,101,34,0.1)",
+    togBg:"rgba(0,0,0,0.06)",logoTxt:"#1A1A1A",cardHov:"rgba(0,0,0,0.02)",
+    selBg:"#fff",selColor:"#1a1a1a",
+    saveBg:"rgba(16,185,129,0.06)",saveBd:"rgba(16,185,129,0.15)",saveColor:"#10B981",
+  },
+};
+const Ctx=createContext();const useT=()=>useContext(Ctx);
+
+/* ═══ ICONS ═══ */
+const IconPrep=({s})=>(<svg width={s||24} height={s||24} viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2.5" stroke={O} strokeWidth="1.6"/><path d="M9 2V4.5H15V2" stroke={O} strokeWidth="1.6" strokeLinecap="round"/><line x1="9" y1="9.5" x2="15" y2="9.5" stroke={O} strokeWidth="1.4" strokeLinecap="round" opacity=".8"/><line x1="9" y1="13" x2="13.5" y2="13" stroke={O} strokeWidth="1.4" strokeLinecap="round" opacity=".6"/><line x1="9" y1="16.5" x2="14" y2="16.5" stroke={O} strokeWidth="1.4" strokeLinecap="round" opacity=".4"/></svg>);
+const IconKickoff=({s})=>(<svg width={s||24} height={s||24} viewBox="0 0 24 24" fill="none"><path d="M5 17L6.5 2L19 12L11.5 13L14.5 22L12 23L9 14.5L5 17Z" fill={O} opacity=".4" stroke={O} strokeWidth="1.6" strokeLinejoin="round"/></svg>);
+const IconCierre=({s})=>(<svg width={s||24} height={s||24} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke={O} strokeWidth="1.6"/><path d="M8 12.5L10.5 15L16 9.5" stroke={O} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+const IC={prep:IconPrep,kickoff:IconKickoff,cierre:IconCierre};
+const ChevL=({c})=>(<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8L10 13" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+const ChevR=({c})=>(<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3L11 8L6 13" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+const ChevD=({c,open})=>(<svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{transition:"transform 0.2s",transform:open?"rotate(0deg)":"rotate(-90deg)"}}><path d="M4 6L8 10L12 6" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>);
+const Logo=({s=40})=>{const t=useT();return(<svg width={s} height={s} viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="44" stroke={O} strokeWidth="2.5"/>{Array.from({length:30}).map((_,i)=>{const a=(i*12-90)*(Math.PI/180),r1=i%5===0?34:37;return<line key={i} x1={50+r1*Math.cos(a)} y1={50+r1*Math.sin(a)} x2={50+42*Math.cos(a)} y2={50+42*Math.sin(a)} stroke={O} strokeWidth={i%5===0?1.8:.7} opacity={.45}/>;})}<text x="50" y="64" textAnchor="middle" fill={t.logoTxt} fontSize="42" fontWeight="700" fontFamily="DM Sans,sans-serif">S</text><path d="M70 26A28 28 0 0 1 80 50" stroke={O} strokeWidth="2.5" fill="none" strokeLinecap="round"/><polygon points="82,44 86,55 76,52" fill={O}/></svg>);};
+
+/* ═══ STEPS ═══ */
+const STEPS=[
+  {phase:"prep",title:"Datos del cliente",content:"Completá los datos básicos del cliente antes de arrancar. Esta información se usa a lo largo de todo el kickoff.",phrase:"Una implementación sólida empieza con un handoff claro, no con supuestos.",fields:[
+    {key:"clientName",label:"Nombre de la empresa",type:"text",placeholder:"Ej: Corralón Los Primos"},
+    {key:"contactName",label:"Contacto principal",type:"text",placeholder:"Ej: Franco Pérez"},
+    {key:"perfilCliente",label:"Perfil del cliente",type:"select",options:["","FLUYE","ACOMPAÑA","RESISTE"]},
+    {key:"implementador",label:"Implementador asignado (SYGEMAT)",type:"text",placeholder:"Nombre del implementador..."},
+    {key:"vendido",label:"¿Qué se vendió y con qué alcance?",type:"textarea",placeholder:"Módulos, usuarios, integraciones..."},
+    {key:"fueraAlcance",label:"¿Qué NO está incluido en esta etapa?",type:"textarea",placeholder:"Funcionalidades, módulos o integraciones que quedan para más adelante..."},
+    {key:"compromisos",label:"Compromisos comerciales ya instalados",type:"textarea",placeholder:"Plazos, funcionalidades, condiciones..."},
+    {key:"dificultadVenta",label:"¿Hubo alguna dificultad durante la venta?",type:"textarea",placeholder:"Objeciones, idas y vueltas, temas sensibles..."},
+  ]},
+  {phase:"prep",title:"Motivo de compra y dolores",content:"Entender por qué avanzaron ahora y no antes. La urgencia original ayuda a sostener foco durante el proyecto.",phrase:"Si olvidamos por qué compraron, empezamos a implementar sin dirección.",fields:[
+    {key:"motivoCompra",label:"¿Por qué decidieron avanzar ahora?",type:"textarea",placeholder:"Qué los empujó a buscar un ERP..."},
+    {key:"dolor1",label:"Dolor principal #1",type:"text",placeholder:"Ej: No tienen control de stock"},
+    {key:"dolor2",label:"Dolor principal #2",type:"text",placeholder:"Ej: Facturan con Excel"},
+    {key:"dolor3",label:"Dolor principal #3",type:"text",placeholder:"Ej: El dueño no puede delegar"},
+    {key:"impacto",label:"¿Dónde pierden tiempo, control o plata?",type:"textarea",placeholder:"Impacto concreto..."},
+  ]},
+  {phase:"prep",title:"Sensibilidades y criterio de éxito",content:"Anticipar resistencias y temas delicados mejora la comunicación. Definir el éxito evita que cada uno interprete algo distinto.",phrase:"No todos los riesgos son técnicos. Muchos de los más pesados son humanos.",fields:[
+    {key:"sensibilidades",label:"Sensibilidades a cuidar",type:"textarea",placeholder:"Resistencias, tensiones, personas clave..."},
+    {key:"criterioExito",label:"¿Qué tiene que pasar para que sientan valor?",type:"textarea",placeholder:"Resultado esperado a corto plazo..."},
+    {key:"alertas",label:"Alertas comerciales",type:"textarea",placeholder:"Promesas que conviene reencuadrar..."},
+  ]},
+  {phase:"kickoff",title:"Apertura y sentido estratégico",content:"Este kickoff no es solo para ordenar tareas. Es para alinear expectativas, forma de trabajo y prioridades. Lo que definamos acá impacta directo en la velocidad y calidad de todo lo que viene.\n\nLas primeras semanas son las que más tracción le dan al proyecto — si esta etapa no tiene prioridad real, después aparecen demoras y retrabajo.",phrase:"Este proyecto no empieza cuando se prende el sistema. Empieza cuando alineamos bien cómo vamos a trabajar.",bullets:["Esto no es solo prender un sistema — es ordenar una forma de trabajar","Lo que definamos hoy impacta directo en velocidad y calidad","Las primeras semanas definen todo: foco ahora o retrabajo después"]},
+  {phase:"kickoff",title:"Dolores y validación",content:"Sabemos que este proyecto nace por problemas concretos que ya venían doliendo. Esos dolores tienen que seguir siendo el norte de toda la implementación.\n\nNecesitamos confirmar que siguen vigentes hoy — si cambió una prioridad, conviene detectarlo ahora y no a mitad del camino.",phrase:"No queremos implementar en el aire. Queremos resolver los problemas reales por los que ustedes decidieron avanzar.",showDolores:true,bullets:["Mencioná los dolores específicos que cargaste en el handoff","Preguntá si cambió algo desde la conversación comercial","Si cambió la urgencia, este es el momento de decirlo"],obsField:{key:"obsValidacion",label:"¿Qué cambió o qué observación surgió?",placeholder:"Prioridades nuevas, dolores que ya no aplican, contexto que cambió..."}},
+  {phase:"kickoff",title:"Compromiso, roles y regla de oro",content:"Para que esto funcione, necesitamos participación activa de ambos lados. Referentes claros, validaciones a tiempo y capacidad de decisión hacen la diferencia.\n\nNecesitamos saber quién decide, quién valida y quién hace seguimiento. Y una regla simple: cada definición debería ayudarnos a resolver los problemas que originaron el proyecto. Si algo no aporta a eso, no es prioridad en esta etapa.",phrase:"Esto no sale bien porque un proveedor empuja solo. Sale bien cuando ambas partes lo empujan de verdad.",bullets:["Dejá claro qué necesitás: disponibilidad, accesos, referentes","Definí los roles operativos clave del cliente","Regla de oro: priorizamos por impacto, no por costumbre"],fields:[
+    {key:"rolSuperUser",label:"Super user (quien va a dominar el sistema)",type:"text",placeholder:"Nombre y rol..."},
+    {key:"rolArticulos",label:"¿Quién carga artículos?",type:"text",placeholder:"Nombre y rol..."},
+    {key:"rolContable",label:"¿Quién maneja la parte contable?",type:"text",placeholder:"Nombre y rol..."},
+  ]},
+  {phase:"kickoff",title:"Método y objetivos de 3 semanas",content:"De nuestro lado van a encontrar método, acompañamiento y orden. Pero además de la tecnología, traemos experiencia real de cómo funcionan los corralones por dentro: los problemas del día a día, los procesos que traban, las cosas que se pueden hacer mejor.\n\nNo somos solo un proveedor de software. Conocemos el negocio y por eso podemos ayudarlos no solo a usar un sistema nuevo, sino a trabajar mejor. Si todos hacemos lo que tenemos que hacer, en 3 semanas están operando con el nuevo sistema.",phrase:"Nosotros no venimos solo a configurar un sistema. Venimos a ayudarlos a que el negocio funcione mejor.",bullets:["Traemos know-how real del negocio corralonero, no solo tecnología","Explicá cómo es el proceso de implementación paso a paso","Definí un quick win para la primera semana que genere confianza","Compromiso mutuo: si todos cumplen, en 3 semanas están operando con SYGEMAT"],fields:[
+    {key:"cadencia",label:"Cadencia de seguimiento acordada",type:"select",options:["Semanal","Bisemanal","Según necesidad"]},
+  ]},
+  {phase:"kickoff",title:"Parte operativa",content:"Ahora vamos a la parte concreta. Acá es donde relevamos cómo trabajan hoy, definimos la migración de datos, configuración inicial, agenda de capacitación y los próximos pasos inmediatos.\n\nEsta parte la manejamos con un proceso probado y los vamos guiando en cada paso.",phrase:"Ahora sí, vamos a lo concreto. Esto es lo que necesitamos para arrancar.",bullets:["Esta sección sigue el proceso de implementación estándar de SYGEMAT","Relevar el proceso actual del cliente (cómo trabajan hoy)","Definir alcance de migración de datos","Configuración inicial del sistema","Agenda de capacitación y cronograma","Próximos pasos inmediatos con fechas"],fields:[
+    {key:"obsProcesoActual",label:"Observaciones sobre el proceso actual del cliente",type:"textarea",placeholder:"Cómo trabajan hoy, qué sistema usan, qué hacen manual, particularidades del negocio..."},
+  ]},
+  {phase:"cierre",title:"Cierre del kickoff",content:"Queremos que todos se vayan con claridad sobre objetivo, forma de trabajo y próximos pasos. Después de la reunión vamos a bajar una minuta con acuerdos, pendientes y responsables.",phrase:"Un buen kickoff no termina cuando se corta la reunión. Termina cuando todos saben exactamente qué sigue.",fields:[
+    {key:"goLive",label:"Fecha objetivo de go-live",type:"date",placeholder:""},
+    {key:"acuerdos",label:"Acuerdos cerrados",type:"textarea",placeholder:"Lo que quedó definido hoy..."},
+    {key:"pendientes",label:"Pendientes con responsable",type:"textarea",placeholder:"Tarea → Quién → Para cuándo"},
+    {key:"proximoPaso",label:"Próximo paso inmediato",type:"textarea",placeholder:"¿Qué se hace mañana?"},
+    {key:"notasCierre",label:"Observaciones generales del kickoff",type:"textarea",placeholder:"Cualquier nota, comentario o tema que haya surgido durante la reunión..."},
+  ]},
+  {phase:"cierre",title:"Checklist final",content:"Antes de dar por cerrado el kickoff, verificá que no quedó nada suelto.",phrase:"Si no queda claro el problema, el compromiso y el siguiente paso, el kickoff quedó incompleto.",checklist:["Se recuperaron y validaron los dolores del cliente","El cliente entiende el sentido estratégico del proyecto","Quedó claro qué compromiso esperamos del cliente","Se definieron roles: super user, carga de artículos y contable","Se marcaron objetivos concretos de corto plazo (3 semanas)","Se acordó la fecha de go-live","Se definió la cadencia de seguimiento (reuniones periódicas)","Hay próximos pasos con responsable y fecha","Se acordó cómo y cuándo será la próxima reunión","Se va a enviar minuta con acuerdos y pendientes"]},
+];
+const PH=[{key:"prep",label:"Handoff Ventas"},{key:"kickoff",label:"Kickoff"},{key:"cierre",label:"Cierre"}];
+
+/* ═══ APP ═══ */
+function App(){
+  const[cur,setCur]=useState(0);
+  const[data,setData]=useState({});
+  const[checks,setChecks]=useState({});
+  const[dark,setDark]=useState(false); /* ← DEFAULT LIGHT */
+  const[sbOpen,setSbOpen]=useState(true);
+  const[sbMobile,setSbMobile]=useState(false);
+  const[collapsed,setCollapsed]=useState({});
+  const[kickoffId,setKickoffId]=useState(null);
+  const[saving,setSaving]=useState(false);
+  const[loaded,setLoaded]=useState(false);
+  const[showList,setShowList]=useState(false);
+  const[kickoffList,setKickoffList]=useState([]);
+  const ref=useRef(null);
+  const saveTimer=useRef(null);
+  const t=T[dark?"dark":"light"];
+  const st=STEPS[cur],pct=((cur+1)/STEPS.length)*100;
+  const ph=PH.find(p=>p.key===st.phase),Ico=IC[st.phase];
+
+  /* Load on mount */
+  useEffect(()=>{
+    const saved=getRef();
+    if(saved?.id){
+      sbLoad(saved.id).then(row=>{
+        if(row){
+          setData(row.data||{});setChecks(row.checks||{});setCur(row.current_step||0);
+          setKickoffId(row.id);if(saved.dark!==undefined)setDark(saved.dark);
+        }
+        setLoaded(true);
+      });
+    }else{setLoaded(true);}
+  },[]);
+
+  /* Auto-save with debounce */
+  const doSave=useCallback(async(d,ch,c)=>{
+    setSaving(true);
+    if(kickoffId){
+      await sbUpdate(kickoffId,d,ch,c);
+    }else{
+      const newId=await sbCreate(d,ch,c);
+      if(newId){setKickoffId(newId);setRef({id:newId,dark});}
+    }
+    setSaving(false);
+  },[kickoffId,dark]);
+
+  useEffect(()=>{
+    if(!loaded)return;
+    if(saveTimer.current)clearTimeout(saveTimer.current);
+    saveTimer.current=setTimeout(()=>doSave(data,checks,cur),800);
+    /* also save ref locally */
+    if(kickoffId)setRef({id:kickoffId,dark});
+  },[data,checks,cur,loaded]);
+
+  useEffect(()=>{if(kickoffId)setRef({id:kickoffId,dark});},[dark]);
+  useEffect(()=>{ref.current?.scrollTo({top:0,behavior:"smooth"});},[cur]);
+
+  const v=k=>data[k]||"",up=(k,val)=>setData(d=>({...d,[k]:val}));
+  const dol=[data.dolor1,data.dolor2,data.dolor3].filter(Boolean);
+  const done=st.checklist?Object.values(checks).filter(Boolean).length:0;
+  const total=st.checklist?st.checklist.length:0;
+  const prof=data.perfilCliente||"";
+
+  /* Go-live auto-set */
+  useEffect(()=>{
+    if(!data.goLive&&loaded){
+      const d=new Date();d.setDate(d.getDate()+21);
+      const day=d.getDay();if(day===0)d.setDate(d.getDate()+1);if(day===6)d.setDate(d.getDate()+2);
+      up("goLive",`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`);
+    }
+    if(!data.cadencia&&loaded){up("cadencia","Semanal");}
+  },[loaded]);
+
+  const togglePhase=(k)=>setCollapsed(c=>({...c,[k]:!c[k]}));
+
+  const handleNew=()=>{
+    if(confirm("¿Limpiar datos y empezar un nuevo kickoff?")){
+      setData({});setChecks({});setCur(0);setKickoffId(null);setRef(null);
+    }
+  };
+
+  const handleLoadList=async()=>{
+    const list=await sbList();setKickoffList(list);setShowList(true);
+  };
+  const handleLoadKickoff=async(id)=>{
+    const row=await sbLoad(id);
+    if(row){setData(row.data||{});setChecks(row.checks||{});setCur(row.current_step||0);setKickoffId(row.id);setRef({id:row.id,dark});}
+    setShowList(false);
+  };
+
+  const ib={width:"100%",padding:"13px 18px",background:t.inputBg,border:`1px solid ${t.borderInput}`,borderRadius:10,color:t.text,fontSize:16,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"all 0.2s"};
+  const profColor=prof==="FLUYE"?"#10B981":prof==="ACOMPAÑA"?O:prof==="RESISTE"?"#EF4444":null;
+
+  return(
+    <Ctx.Provider value={t}>
+    <div style={{display:"flex",height:"100vh",background:t.bg,color:t.text,fontFamily:"'DM Sans',sans-serif",overflow:"hidden",transition:"background 0.3s,color 0.3s"}}>
+
+      {sbMobile&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:90,backdropFilter:"blur(6px)"}} onClick={()=>setSbMobile(false)}/>}
+
+      {/* List modal */}
+      {showList&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)"}} onClick={()=>setShowList(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:dark?"#111":"#fff",borderRadius:16,padding:28,width:420,maxHeight:"70vh",overflowY:"auto",border:`1px solid ${t.border}`}}>
+            <h3 style={{fontSize:18,fontWeight:700,marginBottom:16,color:t.textHi}}>Kickoffs guardados</h3>
+            {kickoffList.length===0&&<p style={{color:t.textLo,fontSize:14}}>No hay kickoffs guardados.</p>}
+            {kickoffList.map(k=>(
+              <button key={k.id} onClick={()=>handleLoadKickoff(k.id)} style={{
+                display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",
+                padding:"12px 16px",background:t.cardHov,border:`1px solid ${t.border}`,
+                borderRadius:10,marginBottom:8,textAlign:"left",transition:"all 0.15s",
+              }}>
+                <div>
+                  <div style={{fontSize:15,fontWeight:600,color:t.textHi}}>{k.client_name||"Sin nombre"}</div>
+                  <div style={{fontSize:12,color:t.textLo,marginTop:2}}>{new Date(k.updated_at).toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+                </div>
+                <span style={{fontSize:12,color:O,fontWeight:600}}>Abrir →</span>
+              </button>
+            ))}
+            <button onClick={()=>setShowList(false)} style={{marginTop:12,padding:"8px 16px",background:t.togBg,border:"none",borderRadius:8,fontSize:13,color:t.textLo,fontWeight:500,width:"100%"}}>Cerrar</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ SIDEBAR ═══ */}
+      <aside className={sbOpen?"":"sb"} style={{
+        width:sbOpen?300:0,minWidth:sbOpen?300:0,background:t.bgSb,
+        borderRight:sbOpen?`1px solid ${t.border}`:"none",
+        display:"flex",flexDirection:"column",zIndex:100,
+        transition:"width 0.3s cubic-bezier(.4,0,.2,1),min-width 0.3s cubic-bezier(.4,0,.2,1)",
+        overflow:"hidden",
+        ...(sbMobile?{position:"fixed",left:0,top:0,bottom:0,width:300,minWidth:300,borderRight:`1px solid ${t.border}`}:{}),
+      }}>
+        <div style={{padding:"28px 24px 16px",minWidth:300}}>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <Logo s={42}/><span style={{fontWeight:800,fontSize:22,letterSpacing:2,textTransform:"uppercase",color:t.logoTxt}}>SYGEMAT</span>
+          </div>
+          <div style={{fontSize:26,color:t.textHi,fontWeight:700,marginTop:10}}>Guía de Kickoff</div>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:12,flexWrap:"wrap"}}>
+            <button onClick={()=>setDark(d=>!d)} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:t.togBg,border:"none",borderRadius:16,fontSize:11,color:t.textLo,fontWeight:500}}>
+              <span style={{fontSize:12}}>{dark?"🌙":"☀️"}</span>{dark?"Dark":"Light"}
+            </button>
+            <button onClick={handleNew} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:t.togBg,border:"none",borderRadius:16,fontSize:11,color:t.textLo,fontWeight:500}}>
+              <span style={{fontSize:11}}>✚</span>Nuevo
+            </button>
+            <button onClick={handleLoadList} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:t.togBg,border:"none",borderRadius:16,fontSize:11,color:t.textLo,fontWeight:500}}>
+              <span style={{fontSize:11}}>📂</span>Abrir
+            </button>
+          </div>
+        </div>
+        <div style={{height:1,background:t.border,margin:"0 20px",minWidth:260}}/>
+
+        <nav style={{flex:1,overflowY:"auto",padding:"16px 12px",minWidth:300}}>
+          {PH.map(p=>{const Px=IC[p.key];const isOpen=!collapsed[p.key];return(
+            <div key={p.key} style={{marginBottom:8}}>
+              <button onClick={()=>togglePhase(p.key)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 16px",marginBottom:isOpen?6:0,width:"100%",background:"transparent",border:"none",textAlign:"left",borderRadius:6,transition:"background 0.15s"}}
+                onMouseEnter={e=>{e.currentTarget.style.background=t.sbAcBg;}} onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+                <Px s={20}/><span style={{flex:1,fontWeight:800,textTransform:"uppercase",letterSpacing:2,fontSize:14,color:O}}>{p.label}</span>
+                <ChevD c={t.textLo} open={isOpen}/>
+              </button>
+              <div style={{maxHeight:isOpen?500:0,overflow:"hidden",transition:"max-height 0.3s cubic-bezier(.4,0,.2,1)"}}>
+                {STEPS.filter(s=>s.phase===p.key).map(s=>{const i=STEPS.indexOf(s),ac=i===cur,dn=i<cur;return(
+                  <button key={i} onClick={()=>{setCur(i);setSbMobile(false);}} style={{display:"flex",alignItems:"center",gap:12,width:"100%",padding:"10px 16px 10px 20px",background:ac?t.sbAcBg:"transparent",border:"none",borderLeft:ac?`3px solid ${O}`:"3px solid transparent",textAlign:"left",borderRadius:0,transition:"all 0.15s"}}>
+                    <span style={{width:7,height:7,borderRadius:"50%",flexShrink:0,background:ac?O:dn?"rgba(242,101,34,0.3)":"rgba(128,128,128,0.2)"}}/>
+                    <span style={{fontSize:15,lineHeight:1.45,color:ac?t.textSbAc:dn?t.textSbDn:t.textSb,fontWeight:ac?600:400}}>{s.title}</span>
+                  </button>);})}
+              </div>
+            </div>);})}
+        </nav>
+
+        {(data.clientName||prof)&&(
+          <div style={{padding:"16px 18px",borderTop:`1px solid ${t.border}`,minWidth:300}}>
+            {data.clientName&&(
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",background:t.cliBg,border:`1px solid ${t.cliBd}`,borderRadius:8,fontSize:14,fontWeight:600,color:t.textMd,marginBottom:prof?8:0}}>
+                <span style={{fontSize:16}}>🏗</span>{data.clientName}
+              </div>)}
+            {prof&&(
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:profColor+"12",border:`1px solid ${profColor}25`,borderRadius:8,fontSize:12,fontWeight:700,letterSpacing:1,color:profColor}}>
+                <span style={{fontSize:14}}>{prof==="FLUYE"?"🟢":prof==="ACOMPAÑA"?"🟡":"🔴"}</span>{prof}
+              </div>)}
+          </div>)}
+      </aside>
+
+      {/* ═══ MAIN ═══ */}
+      <main style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 24px",borderBottom:`1px solid ${t.border}`,flexShrink:0}}>
+          <button onClick={()=>setSbOpen(o=>!o)} style={{display:"flex",alignItems:"center",justifyContent:"center",width:32,height:32,borderRadius:8,border:`1px solid ${t.border}`,background:"transparent",flexShrink:0}}>
+            {sbOpen?<ChevL c={t.textLo}/>:<ChevR c={t.textLo}/>}
+          </button>
+          <button className="mobtn" onClick={()=>setSbMobile(true)} style={{display:"none",alignItems:"center",justifyContent:"center",width:32,height:32,borderRadius:8,border:`1px solid ${t.border}`,background:"transparent",color:t.text,fontSize:18,flexShrink:0}}>☰</button>
+          {!sbOpen&&(<div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}><Logo s={24}/><span style={{fontWeight:700,fontSize:14,color:t.textLo,letterSpacing:1}}>SYGEMAT</span></div>)}
+          <div style={{flex:1,height:3,background:t.progBg,borderRadius:3,overflow:"hidden"}}>
+            <div style={{height:"100%",borderRadius:3,background:O,transition:"width 0.5s cubic-bezier(.4,0,.2,1)",width:`${pct}%`}}/>
+          </div>
+          {/* Save indicator */}
+          <div style={{display:"flex",alignItems:"center",gap:6,padding:"3px 10px",borderRadius:12,background:t.saveBg,border:`1px solid ${t.saveBd}`,fontSize:11,fontWeight:600,color:t.saveColor,opacity:saving?1:0.5,transition:"opacity 0.3s"}}>
+            {saving?"Guardando...":"✓ Guardado"}
+          </div>
+          <span style={{fontSize:13,color:t.textLo,fontWeight:600,letterSpacing:.5,flexShrink:0}}>{cur+1}/{STEPS.length}</span>
+        </div>
+
+        <div ref={ref} style={{flex:1,overflowY:"auto"}}>
+          <div className="cnt" style={{padding:"48px 56px 100px",maxWidth:740}}>
+            <div style={{display:"inline-flex",alignItems:"center",gap:10,marginBottom:32,padding:"7px 20px 7px 14px",background:t.pillBg,border:`1px solid ${t.pillBd}`,borderRadius:100}}>
+              <Ico s={22}/><span style={{fontSize:13,fontWeight:700,color:O,textTransform:"uppercase",letterSpacing:2}}>{ph.label}</span>
+            </div>
+
+            <h1 style={{fontSize:36,fontWeight:800,letterSpacing:-.8,lineHeight:1.12,marginBottom:20,color:t.textHi}}>{st.title}</h1>
+
+            {st.content.split("\n\n").map((p,i)=>(<p key={i} style={{fontSize:17,lineHeight:1.85,color:t.textMd,marginBottom:18}}>{p}</p>))}
+
+            <div style={{padding:"22px 28px",marginTop:16,marginBottom:36,background:t.phraseBg,borderLeft:`3px solid ${O}`,borderRadius:"0 12px 12px 0"}}>
+              <div style={{fontSize:10,fontWeight:800,color:O,letterSpacing:2.5,marginBottom:10}}>FRASE DE IMPACTO</div>
+              <p style={{fontSize:19,fontWeight:500,color:dark?"rgba(255,255,255,0.92)":"rgba(0,0,0,0.8)",lineHeight:1.7,fontStyle:"italic",margin:0}}>"{st.phrase}"</p>
+            </div>
+
+            {st.showDolores&&dol.length>0&&(
+              <div style={{padding:"20px 24px",background:t.dolBg,border:`1px solid ${t.dolBd}`,borderRadius:12,marginBottom:32}}>
+                <div style={{fontSize:12,fontWeight:800,color:O,letterSpacing:1.5,marginBottom:12}}>📌 DOLORES DEL HANDOFF</div>
+                {dol.map((d,i)=>(<div key={i} style={{fontSize:16,color:dark?"rgba(255,255,255,0.8)":"rgba(0,0,0,0.7)",lineHeight:1.8,paddingLeft:4}}>• {d}</div>))}
+              </div>)}
+            {st.showDolores&&dol.length===0&&(
+              <div style={{padding:"20px 24px",background:dark?"rgba(255,255,255,0.015)":"rgba(0,0,0,0.02)",border:`1px dashed ${t.borderInput}`,borderRadius:12,marginBottom:32,fontSize:15,color:t.textLo,fontStyle:"italic"}}>
+                No se cargaron dolores en el handoff. Volvé al paso 2 para completarlos.
+              </div>)}
+
+            {st.bullets&&(
+              <div style={{marginBottom:32}}>
+                <div style={{fontSize:11,fontWeight:800,color:t.textLo,letterSpacing:2,marginBottom:16,textTransform:"uppercase"}}>Guía para este momento</div>
+                {st.bullets.map((b,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"flex-start",gap:14,padding:"12px 0",borderBottom:i<st.bullets.length-1?`1px solid ${t.border}`:"none"}}>
+                    <span style={{width:28,height:28,borderRadius:7,flexShrink:0,marginTop:1,background:t.bulBg,border:`1px solid ${t.bulBd}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:O}}>{i+1}</span>
+                    <span style={{fontSize:16,color:dark?"rgba(255,255,255,0.75)":"rgba(0,0,0,0.65)",lineHeight:1.7}}>{b}</span>
+                  </div>))}
+              </div>)}
+
+            {/* Observation toggle field */}
+            {st.obsField&&(
+              <div style={{marginBottom:28}}>
+                {!v(st.obsField.key)&&!data["_showObs_"+st.obsField.key]?(
+                  <button onClick={()=>up("_showObs_"+st.obsField.key,"1")} style={{
+                    display:"inline-flex",alignItems:"center",gap:8,padding:"9px 18px",
+                    background:t.pillBg,border:`1px solid ${t.pillBd}`,borderRadius:10,
+                    fontSize:14,fontWeight:600,color:O,transition:"all 0.15s",
+                  }}>
+                    <span style={{fontSize:15}}>📝</span>Agregar observación
+                  </button>
+                ):(
+                  <div>
+                    <label style={{display:"block",fontSize:15,fontWeight:600,color:t.textMd,marginBottom:8}}>{st.obsField.label}</label>
+                    <textarea style={{...ib,resize:"vertical",lineHeight:1.7}}
+                      placeholder={st.obsField.placeholder} value={v(st.obsField.key)}
+                      onChange={e=>up(st.obsField.key,e.target.value)} rows={3}
+                      onFocus={e=>{e.target.style.borderColor=t.focusBd;}}
+                      onBlur={e=>{e.target.style.borderColor=t.borderInput;}}/>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {st.fields?.map(f=>(
+              <div key={f.key} style={{marginBottom:22}}>
+                <label style={{display:"block",fontSize:15,fontWeight:600,color:t.textMd,marginBottom:8}}>{f.label}</label>
+                {f.type==="select"?(
+                  <select value={v(f.key)} onChange={e=>up(f.key,e.target.value)} style={{
+                    width:"100%",padding:"13px 18px",background:t.selBg,color:v(f.key)?t.selColor:t.textMute,
+                    border:`1px solid ${f.key==="perfilCliente"&&v(f.key)&&profColor?profColor:t.borderInput}`,
+                    borderRadius:10,fontSize:16,outline:"none",fontFamily:"inherit",boxSizing:"border-box",cursor:"pointer",transition:"all 0.2s",
+                    WebkitAppearance:"none",MozAppearance:"none",appearance:"none",
+                    backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' fill='none' stroke-width='1.5'/%3E%3C/svg%3E\")",
+                    backgroundRepeat:"no-repeat",backgroundPosition:"right 18px center",paddingRight:44,
+                  }}>
+                    <option value="">Seleccionar...</option>
+                    {f.key==="perfilCliente"?(<>
+                      <option value="FLUYE">🟢 FLUYE — Avanzó sin fricciones</option>
+                      <option value="ACOMPAÑA">🟡 ACOMPAÑA — Colabora pero hay que guiarlo</option>
+                      <option value="RESISTE">🔴 RESISTE — Mostró resistencia o trabas</option>
+                    </>):(f.options?.filter(Boolean).map(opt=>(<option key={opt} value={opt}>{opt}</option>)))}
+                  </select>
+                ):f.type==="date"?(
+                  <input type="date" style={{...ib,cursor:"pointer"}} value={v(f.key)} onChange={e=>up(f.key,e.target.value)}
+                    onFocus={e=>{e.target.style.borderColor=t.focusBd;}} onBlur={e=>{e.target.style.borderColor=t.borderInput;}}/>
+                ):f.type==="textarea"?(
+                  <textarea style={{...ib,resize:"vertical",lineHeight:1.7}} placeholder={f.placeholder} value={v(f.key)} onChange={e=>up(f.key,e.target.value)} rows={3}
+                    onFocus={e=>{e.target.style.borderColor=t.focusBd;}} onBlur={e=>{e.target.style.borderColor=t.borderInput;}}/>
+                ):(
+                  <input type="text" style={ib} placeholder={f.placeholder} value={v(f.key)} onChange={e=>up(f.key,e.target.value)}
+                    onFocus={e=>{e.target.style.borderColor=t.focusBd;}} onBlur={e=>{e.target.style.borderColor=t.borderInput;}}/>
+                )}
+              </div>))}
+
+            {st.checklist&&(<div>
+              {st.checklist.map((item,i)=>(
+                <button key={i} onClick={()=>setChecks(c=>({...c,[i]:!c[i]}))} style={{display:"flex",alignItems:"flex-start",gap:14,padding:"14px 0",background:"none",border:"none",borderBottom:`1px solid ${t.border}`,width:"100%",textAlign:"left"}}>
+                  <span style={{width:24,height:24,borderRadius:6,flexShrink:0,marginTop:1,border:checks[i]?`2px solid ${O}`:`2px solid ${t.chkBd}`,background:checks[i]?O:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#fff",fontWeight:700,transition:"all 0.15s"}}>{checks[i]&&"✓"}</span>
+                  <span style={{fontSize:16,color:dark?"rgba(255,255,255,0.75)":"rgba(0,0,0,0.7)",lineHeight:1.6,textDecoration:checks[i]?"line-through":"none",opacity:checks[i]?.3:1}}>{item}</span>
+                </button>))}
+              <div style={{marginTop:20,padding:"12px 18px",borderRadius:10,background:done===total?t.pillBg:dark?"rgba(255,255,255,0.02)":"rgba(0,0,0,0.02)",border:`1px solid ${done===total?t.pillBd:t.border}`,fontSize:14,fontWeight:600,color:done===total?O:t.textLo}}>
+                {done===total?"✓ Checklist completo — kickoff cerrado":`${done} / ${total} completados`}
+              </div>
+            </div>)}
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:10,padding:"10px 36px",borderTop:`1px solid ${t.border}`,background:t.bg,flexShrink:0,transition:"background 0.3s"}}>
+          <button disabled={cur===0} onClick={()=>setCur(cur-1)} style={{padding:"8px 18px",borderRadius:8,fontSize:13,fontWeight:600,background:dark?"rgba(255,255,255,0.03)":"rgba(0,0,0,0.04)",color:t.textLo,border:`1px solid ${t.border}`,opacity:cur===0?.15:1}}>← Anterior</button>
+          <button onClick={()=>cur<STEPS.length-1&&setCur(cur+1)} style={{padding:"8px 24px",borderRadius:8,fontSize:13,fontWeight:600,background:cur===STEPS.length-1?dark?"rgba(242,101,34,0.1)":"rgba(242,101,34,0.08)":O,color:cur===STEPS.length-1?t.textLo:"#fff",border:"none",opacity:cur===STEPS.length-1?.4:1}}>
+            {cur===STEPS.length-1?"✓ Completo":"Siguiente →"}
+          </button>
+        </div>
+      </main>
+    </div>
+    </Ctx.Provider>);
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
