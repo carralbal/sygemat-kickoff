@@ -23,6 +23,7 @@
   textarea:focus,input:focus{outline:none;}
   select{font-family:inherit;}
   @media(max-width:900px){.sb{display:none!important;}.mobtn{display:flex!important;}.cnt{padding:28px 22px 100px!important;}}
+  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -174,6 +175,11 @@ function App(){
   const[showList,setShowList]=useState(false);
   const[kickoffList,setKickoffList]=useState([]);
   const[ready,setReady]=useState(false);
+  const[showTranscript,setShowTranscript]=useState(false);
+  const[transcriptText,setTranscriptText]=useState("");
+  const[transcriptLoading,setTranscriptLoading]=useState(false);
+  const[transcriptError,setTranscriptError]=useState("");
+  const[transcriptPreview,setTranscriptPreview]=useState(null);
   const ref=useRef(null);
   const saveTimer=useRef(null);
   const t=T[dark?"dark":"light"];
@@ -274,6 +280,62 @@ function App(){
     }
   };
 
+  /* ── Transcript processing ── */
+  const handleProcessTranscript=async()=>{
+    if(!transcriptText.trim()||transcriptText.trim().length<20){
+      setTranscriptError("El texto es muy corto. Pegá al menos un fragmento de la transcripción.");return;
+    }
+    setTranscriptLoading(true);setTranscriptError("");setTranscriptPreview(null);
+    try{
+      const r=await fetch("/api/process-transcript",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({transcript:transcriptText})
+      });
+      const json=await r.json();
+      if(!r.ok){throw new Error(json.error||"Error procesando");}
+      if(json.data){setTranscriptPreview(json.data);}
+      else{throw new Error("No se pudieron extraer datos");}
+    }catch(e){
+      console.error("Transcript error:",e);
+      setTranscriptError(e.message||"Error al procesar la transcripción");
+    }
+    setTranscriptLoading(false);
+  };
+
+  const handleApplyTranscript=()=>{
+    if(!transcriptPreview)return;
+    const p=transcriptPreview;
+    const merged={...data};
+    Object.keys(p).forEach(k=>{
+      if(p[k]&&typeof p[k]==="string"&&p[k].trim()){
+        /* Only overwrite if current field is empty, or merge for textarea fields */
+        if(!merged[k]||merged[k].trim()===""){
+          merged[k]=p[k];
+        }else if(["vendido","compromisos","impacto","sensibilidades","criterioExito","alertas",
+          "obsProcesoActual","obsValidacion","acuerdos","pendientes","proximoPaso","notasCierre",
+          "sistemaActual","fueraAlcance","dificultadVenta","motivoCompra"].includes(k)){
+          /* For textarea fields with existing content, append */
+          merged[k]=merged[k]+"\n\n[Desde transcripción]\n"+p[k];
+        }
+      }
+    });
+    setData(merged);
+    setShowTranscript(false);setTranscriptText("");setTranscriptPreview(null);setTranscriptError("");
+    setCur(0);/* Go to first step to review */
+  };
+
+  const FIELD_LABELS={
+    clientName:"Empresa",contactName:"Contacto",perfilCliente:"Perfil",implementador:"Implementador",
+    sistemaActual:"Sistema actual",vendido:"Qué se vendió",fueraAlcance:"Fuera de alcance",
+    compromisos:"Compromisos",dificultadVenta:"Dificultad venta",motivoCompra:"Motivo de compra",
+    dolor1:"Dolor #1",dolor2:"Dolor #2",dolor3:"Dolor #3",impacto:"Impacto",
+    sensibilidades:"Sensibilidades",criterioExito:"Criterio éxito",alertas:"Alertas",
+    rolSuperUser:"Super user",rolArticulos:"Carga artículos",rolContable:"Contable",
+    obsProcesoActual:"Obs. proceso actual",obsValidacion:"Obs. validación",
+    acuerdos:"Acuerdos",pendientes:"Pendientes",proximoPaso:"Próximo paso",
+    notasCierre:"Notas cierre",cadencia:"Cadencia",
+  };
+
   const ib={width:"100%",padding:"13px 18px",background:t.inputBg,border:`1px solid ${t.borderInput}`,borderRadius:10,color:t.text,fontSize:16,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"all 0.2s"};
   const profColor=prof==="FLUYE"?"#10B981":prof==="ACOMPAÑA"?O:prof==="RESISTE"?"#EF4444":null;
 
@@ -315,6 +377,89 @@ function App(){
         </div>
       )}
 
+      {/* ═══ TRANSCRIPT MODAL ═══ */}
+      {showTranscript&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:210,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)"}} onClick={()=>!transcriptLoading&&setShowTranscript(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:t.modalBg,borderRadius:16,padding:28,width:560,maxWidth:"95vw",maxHeight:"85vh",overflowY:"auto",border:`1px solid ${t.border}`,boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <h3 style={{fontSize:20,fontWeight:700,marginBottom:4,color:t.textHi}}>📋 Procesar transcripción</h3>
+            <p style={{fontSize:13,color:t.textLo,marginBottom:16}}>
+              Pegá la transcripción de una o más reuniones con el cliente. La IA va a extraer los datos para completar el kickoff automáticamente.
+            </p>
+
+            {!transcriptPreview?(
+              <>
+                <textarea
+                  value={transcriptText}
+                  onChange={e=>setTranscriptText(e.target.value)}
+                  placeholder={"Pegá acá la transcripción de la reunión...\n\nPodés pegar múltiples transcripciones juntas separadas por una línea en blanco."}
+                  disabled={transcriptLoading}
+                  style={{
+                    width:"100%",minHeight:220,padding:"16px 18px",background:t.inputBg,
+                    border:`1px solid ${t.borderInput}`,borderRadius:10,color:t.text,
+                    fontSize:14,lineHeight:1.7,fontFamily:"inherit",resize:"vertical",
+                    outline:"none",boxSizing:"border-box",opacity:transcriptLoading?0.5:1,
+                  }}
+                />
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:12,gap:10}}>
+                  <span style={{fontSize:12,color:t.textMute}}>
+                    {transcriptText.trim().length>0?`${transcriptText.trim().length} caracteres`:""}
+                  </span>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>setShowTranscript(false)} disabled={transcriptLoading} style={{
+                      padding:"10px 20px",background:t.togBg,border:"none",borderRadius:10,
+                      fontSize:13,color:t.textLo,fontWeight:500,opacity:transcriptLoading?0.4:1,
+                    }}>Cancelar</button>
+                    <button onClick={handleProcessTranscript} disabled={transcriptLoading||!transcriptText.trim()} style={{
+                      padding:"10px 24px",background:transcriptLoading?"rgba(242,101,34,0.3)":O,
+                      border:"none",borderRadius:10,fontSize:14,fontWeight:700,color:"#fff",
+                      opacity:(!transcriptText.trim()&&!transcriptLoading)?0.4:1,
+                      display:"flex",alignItems:"center",gap:8,
+                    }}>
+                      {transcriptLoading?(
+                        <><span style={{display:"inline-block",width:14,height:14,border:"2px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>Procesando...</>
+                      ):"🚀 Procesar"}
+                    </button>
+                  </div>
+                </div>
+                {transcriptError&&(
+                  <div style={{marginTop:12,padding:"12px 16px",background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.15)",borderRadius:10,fontSize:13,color:"#EF4444",fontWeight:500}}>
+                    ⚠ {transcriptError}
+                  </div>
+                )}
+              </>
+            ):(
+              <>
+                <div style={{fontSize:12,fontWeight:800,color:O,letterSpacing:2,marginBottom:12,textTransform:"uppercase"}}>Datos extraídos — revisá antes de aplicar</div>
+                <div style={{maxHeight:380,overflowY:"auto",marginBottom:16}}>
+                  {Object.entries(transcriptPreview).filter(([k,val])=>val&&typeof val==="string"&&val.trim()).map(([k,val])=>(
+                    <div key={k} style={{padding:"10px 14px",marginBottom:6,background:t.inputBg,border:`1px solid ${t.borderInput}`,borderRadius:8}}>
+                      <div style={{fontSize:11,fontWeight:700,color:O,letterSpacing:1,marginBottom:4,textTransform:"uppercase"}}>{FIELD_LABELS[k]||k}</div>
+                      <div style={{fontSize:14,color:t.textMd,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{val}</div>
+                      {data[k]&&data[k].trim()&&(
+                        <div style={{fontSize:11,color:t.textMute,marginTop:6,fontStyle:"italic"}}>⚠ Ya tiene datos — se van a combinar</div>
+                      )}
+                    </div>
+                  ))}
+                  {Object.entries(transcriptPreview).filter(([k,val])=>val&&typeof val==="string"&&val.trim()).length===0&&(
+                    <div style={{padding:"20px",textAlign:"center",color:t.textLo,fontSize:14}}>No se encontraron datos relevantes en la transcripción.</div>
+                  )}
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>{setTranscriptPreview(null);}} style={{
+                    flex:1,padding:"12px 16px",background:t.togBg,border:"none",borderRadius:10,
+                    fontSize:13,color:t.textLo,fontWeight:500,
+                  }}>← Volver a editar</button>
+                  <button onClick={handleApplyTranscript} style={{
+                    flex:1,padding:"12px 16px",background:O,border:"none",borderRadius:10,
+                    fontSize:14,fontWeight:700,color:"#fff",
+                  }}>✓ Aplicar al kickoff</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ═══ SIDEBAR ═══ */}
       <aside className={sbOpen?"":"sb"} style={{
         width:sbOpen?300:0,minWidth:sbOpen?300:0,background:t.bgSb,
@@ -338,6 +483,9 @@ function App(){
             </button>
             <button onClick={handleLoadList} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:t.togBg,border:"none",borderRadius:16,fontSize:11,color:t.textLo,fontWeight:500}}>
               <span style={{fontSize:11}}>📂</span>Abrir
+            </button>
+            <button onClick={()=>{setShowTranscript(true);setTranscriptError("");setTranscriptPreview(null);}} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"rgba(242,101,34,0.08)",border:`1px solid rgba(242,101,34,0.15)`,borderRadius:16,fontSize:11,color:O,fontWeight:600}}>
+              <span style={{fontSize:11}}>📋</span>Transcript
             </button>
           </div>
         </div>
