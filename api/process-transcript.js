@@ -100,12 +100,18 @@ IMPORTANTE:
       // Try direct parse first
       extracted = JSON.parse(text);
     } catch {
-      // Try to find JSON in the response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        extracted = JSON.parse(jsonMatch[0]);
-      } else {
-        return res.status(500).json({ error: "Could not parse AI response", raw: text.slice(0, 500) });
+      try {
+        // Strip markdown code fences if present
+        let cleaned = text.replace(/```(?:json)?\s*/g, "").replace(/```\s*/g, "");
+        // Try to find JSON object in the response
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          extracted = JSON.parse(jsonMatch[0]);
+        } else {
+          return res.status(500).json({ error: "Could not parse AI response", raw: text.slice(0, 500) });
+        }
+      } catch (parseErr) {
+        return res.status(500).json({ error: "JSON parse failed: " + parseErr.message, raw: text.slice(0, 500) });
       }
     }
 
