@@ -309,13 +309,16 @@ function App(){
     const conflicting=Object.keys(transcriptPreview).filter(k=>
       transcriptPreview[k]&&transcriptPreview[k].trim()!==""&&data[k]&&data[k].trim()!==""
     );
-    if(conflicting.length>0){
-      if(!window.confirm(
-        `Este kickoff ya tiene ${existingFields.length} campos con datos.\n\n`+
-        `${conflicting.length} campos se van a complementar o mantener (no se pierden).\n`+
-        `Los campos vacíos se completan con lo extraído.\n\n`+
-        `¿Aplicar?`
-      ))return;
+    if(existingFields.length>0){
+      const msg=conflicting.length>0
+        ?`Este kickoff ya tiene ${existingFields.length} campos con datos.\n\n`+
+         `${conflicting.length} campos coinciden — se van a complementar o mantener (no se pierden).\n`+
+         `Los campos vacíos se completan con lo extraído.\n\n`+
+         `¿Aplicar?`
+        :`Este kickoff tiene ${existingFields.length} campos con datos.\n`+
+         `No se pisa nada — solo se completan los campos vacíos.\n\n`+
+         `¿Aplicar?`;
+      if(!window.confirm(msg))return;
     }
     const p=transcriptPreview;
     const merged={...data};
