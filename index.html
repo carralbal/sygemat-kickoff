@@ -292,7 +292,7 @@ function App(){
         body:JSON.stringify({transcript:transcriptText})
       });
       const json=await r.json();
-      if(!r.ok){throw new Error(json.error||"Error procesando");}
+      if(!r.ok){throw new Error((json.error||"Error procesando")+(json.raw?"\n\nRespuesta: "+json.raw.slice(0,200):""));}
       if(json.data){setTranscriptPreview(json.data);}
       else{throw new Error("No se pudieron extraer datos");}
     }catch(e){

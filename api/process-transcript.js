@@ -93,6 +93,7 @@ IMPORTANTE:
 
     const result = await response.json();
     const text = result.content?.[0]?.text || "";
+    console.log("AI response length:", text.length, "first 300 chars:", text.slice(0, 300));
 
     // Parse the JSON from Claude's response
     let extracted;
