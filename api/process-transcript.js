@@ -1,26 +1,7 @@
 // Vercel Serverless Function — Process meeting transcripts with Claude API
 // POST /api/process-transcript  { transcript: "..." }
 
-export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
-  const { transcript } = req.body || {};
-  if (!transcript || typeof transcript !== "string" || transcript.trim().length < 20) {
-    return res.status(400).json({ error: "Transcript too short or missing" });
-  }
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "API key not configured" });
-  }
-
-  const systemPrompt = `Sos un asistente experto en implementación de software ERP para corralones (materiales de construcción) en Argentina. Tu tarea es analizar transcripciones de reuniones comerciales o de kickoff y extraer información estructurada para completar una guía de kickoff de implementación del sistema SYGEMAT.
+const systemPrompt = `Sos un asistente experto en implementación de software ERP para corralones (materiales de construcción) en Argentina. Tu tarea es analizar transcripciones de reuniones comerciales o de kickoff y extraer información estructurada para completar una guía de kickoff de implementación del sistema SYGEMAT.
 
 Analizá la transcripción y extraé SOLO la información que efectivamente aparezca. No inventes ni asumas datos. Si un campo no tiene información en la transcripción, dejalo como string vacío "".
 
@@ -64,73 +45,140 @@ IMPORTANTE:
 - Para dolores, intentá resumir en frases cortas y concretas
 - Para cadencia, solo completá si se habla explícitamente de frecuencia de reuniones`;
 
+async function callAnthropic(apiKey, transcript) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 8192,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: `Analizá esta transcripción de reunión y extraé la información para el kickoff de SYGEMAT:\n\n${transcript.slice(0, 50000)}`,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    console.error("Anthropic API error:", response.status, errBody);
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  console.log("API stop_reason:", result.stop_reason, "content blocks:", result.content?.length, "usage:", JSON.stringify(result.usage));
+
+  // Find the text block in content (could be mixed with other types)
+  const textBlock = result.content?.find((b) => b.type === "text");
+  const text = textBlock?.text || "";
+
+  if (!text) {
+    console.error("Empty text in API response. Full result:", JSON.stringify(result).slice(0, 2000));
+    throw new Error("API returned empty text");
+  }
+
+  if (result.stop_reason === "max_tokens") {
+    console.warn("Response was truncated (max_tokens). Text length:", text.length);
+  }
+
+  return text;
+}
+
+function parseJSON(text) {
+  // Try direct parse
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-5-5",
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: `Analizá esta transcripción de reunión y extraé la información para el kickoff de SYGEMAT:\n\n${transcript.slice(0, 50000)}`,
-          },
-        ],
-      }),
-    });
+    return JSON.parse(text);
+  } catch {
+    // continue to fallback
+  }
 
-    if (!response.ok) {
-      const errBody = await response.text();
-      console.error("Anthropic API error:", response.status, errBody);
-      return res.status(502).json({ error: `API error: ${response.status}` });
-    }
+  // Strip markdown code fences
+  let cleaned = text.replace(/```(?:json)?\s*/g, "").replace(/```\s*/g, "").trim();
 
-    const result = await response.json();
-    console.log("API result keys:", Object.keys(result), "stop_reason:", result.stop_reason, "content length:", result.content?.length);
-    if (result.content?.[0]) {
-      console.log("content[0] type:", result.content[0].type, "has text:", !!result.content[0].text);
-    }
-    const text = result.content?.[0]?.text || "";
-    console.log("AI response length:", text.length, "first 300 chars:", text.slice(0, 300));
-
-    if (!text) {
-      console.error("Empty response from API. Full result:", JSON.stringify(result).slice(0, 1000));
-      return res.status(500).json({
-        error: "La API devolvió una respuesta vacía. Intentá de nuevo.",
-        debug: { stop_reason: result.stop_reason, content_types: result.content?.map(c => c.type) }
-      });
-    }
-
-    // Parse the JSON from Claude's response
-    let extracted;
+  // Try to find and parse a JSON object
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
     try {
-      // Try direct parse first
-      extracted = JSON.parse(text);
+      return JSON.parse(jsonMatch[0]);
     } catch {
-      try {
-        // Strip markdown code fences if present
-        let cleaned = text.replace(/```(?:json)?\s*/g, "").replace(/```\s*/g, "");
-        // Try to find JSON object in the response
-        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          extracted = JSON.parse(jsonMatch[0]);
-        } else {
-          return res.status(500).json({ error: "Could not parse AI response", raw: text.slice(0, 500) });
-        }
-      } catch (parseErr) {
-        return res.status(500).json({ error: "JSON parse failed: " + parseErr.message, raw: text.slice(0, 500) });
+      // continue to truncation repair
+    }
+  }
+
+  // Last resort: try to repair truncated JSON by closing open braces/quotes
+  let repaired = cleaned;
+  if (!repaired.endsWith("}")) {
+    // Remove any trailing incomplete key-value pair
+    repaired = repaired.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"]*$/, "");
+    // Close the object
+    if (!repaired.endsWith("}")) {
+      // Close any open string
+      const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
+      if (quoteCount % 2 !== 0) repaired += '"';
+      repaired += "}";
+    }
+  }
+
+  try {
+    return JSON.parse(repaired);
+  } catch (e) {
+    throw new Error(`JSON parse failed: ${e.message}`);
+  }
+}
+
+export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  const { transcript } = req.body || {};
+  if (!transcript || typeof transcript !== "string" || transcript.trim().length < 20) {
+    return res.status(400).json({ error: "Transcript too short or missing" });
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "API key not configured" });
+  }
+
+  // Retry up to 2 times on transient failures
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      console.log(`Attempt ${attempt}: calling Anthropic API (transcript: ${transcript.length} chars)`);
+      const text = await callAnthropic(apiKey, transcript);
+      console.log("AI response length:", text.length, "first 200 chars:", text.slice(0, 200));
+
+      const extracted = parseJSON(text);
+      console.log("Successfully parsed JSON with", Object.keys(extracted).length, "fields");
+
+      return res.status(200).json({ success: true, data: extracted });
+    } catch (err) {
+      console.error(`Attempt ${attempt} failed:`, err.message);
+      lastError = err;
+
+      // Don't retry on non-transient errors
+      if (err.message.includes("API error: 4")) break; // 4xx errors
+      if (attempt < 2) {
+        console.log("Retrying in 1s...");
+        await new Promise((r) => setTimeout(r, 1000));
       }
     }
-
-    return res.status(200).json({ success: true, data: extracted });
-  } catch (err) {
-    console.error("Process transcript error:", err);
-    return res.status(500).json({ error: err.message || "Internal error" });
   }
+
+  return res.status(500).json({
+    error: lastError?.message || "Error procesando la transcripción",
+    raw: lastError?.message?.includes("parse") ? undefined : undefined,
+  });
 }
