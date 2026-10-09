@@ -74,7 +74,7 @@ IMPORTANTE:
       },
       body: JSON.stringify({
         model: "claude-haiku-5-5",
-        max_tokens: 2000,
+        max_tokens: 4096,
         system: systemPrompt,
         messages: [
           {
