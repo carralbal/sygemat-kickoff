@@ -304,6 +304,19 @@ function App(){
 
   const handleApplyTranscript=()=>{
     if(!transcriptPreview)return;
+    /* Check if kickoff already has data */
+    const existingFields=Object.keys(data).filter(k=>data[k]&&typeof data[k]==="string"&&data[k].trim()!=="");
+    const conflicting=Object.keys(transcriptPreview).filter(k=>
+      transcriptPreview[k]&&transcriptPreview[k].trim()!==""&&data[k]&&data[k].trim()!==""
+    );
+    if(conflicting.length>0){
+      if(!window.confirm(
+        `Este kickoff ya tiene ${existingFields.length} campos con datos.\n\n`+
+        `${conflicting.length} campos se van a complementar o mantener (no se pierden).\n`+
+        `Los campos vacíos se completan con lo extraído.\n\n`+
+        `¿Aplicar?`
+      ))return;
+    }
     const p=transcriptPreview;
     const merged={...data};
     Object.keys(p).forEach(k=>{
