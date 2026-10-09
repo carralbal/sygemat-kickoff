@@ -92,8 +92,20 @@ IMPORTANTE:
     }
 
     const result = await response.json();
+    console.log("API result keys:", Object.keys(result), "stop_reason:", result.stop_reason, "content length:", result.content?.length);
+    if (result.content?.[0]) {
+      console.log("content[0] type:", result.content[0].type, "has text:", !!result.content[0].text);
+    }
     const text = result.content?.[0]?.text || "";
     console.log("AI response length:", text.length, "first 300 chars:", text.slice(0, 300));
+
+    if (!text) {
+      console.error("Empty response from API. Full result:", JSON.stringify(result).slice(0, 1000));
+      return res.status(500).json({
+        error: "La API devolvió una respuesta vacía. Intentá de nuevo.",
+        debug: { stop_reason: result.stop_reason, content_types: result.content?.map(c => c.type) }
+      });
+    }
 
     // Parse the JSON from Claude's response
     let extracted;
