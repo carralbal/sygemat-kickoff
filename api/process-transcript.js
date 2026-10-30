@@ -34,7 +34,8 @@ Devolvé ÚNICAMENTE un JSON válido (sin markdown, sin backticks, sin explicaci
   "pendientes": "Pendientes con responsable y fecha si se mencionan",
   "proximoPaso": "Próximo paso inmediato acordado",
   "notasCierre": "Observaciones generales adicionales",
-  "cadencia": "Semanal o Bisemanal o Según necesidad — solo si se menciona"
+  "cadencia": "Semanal o Bisemanal o Según necesidad — solo si se menciona",
+  "criterioExitoKickoff": "Qué tendría que pasar para que el cliente considere la implementación exitosa — solo si se menciona"
 }
 
 IMPORTANTE:

@@ -136,7 +136,8 @@ const STEPS=[
     {key:"rolArticulos",label:"¿Quién carga artículos?",type:"text",placeholder:"Nombre y rol..."},
     {key:"rolContable",label:"¿Quién maneja la parte contable?",type:"text",placeholder:"Nombre y rol..."},
   ]},
-  {phase:"kickoff",title:"Método y objetivos de 3 semanas",content:"De nuestro lado van a encontrar método, acompañamiento y orden. Pero además de la tecnología, traemos experiencia real de cómo funcionan los corralones por dentro: los problemas del día a día, los procesos que traban, las cosas que se pueden hacer mejor.\n\nNo somos solo un proveedor de software. Conocemos el negocio y por eso podemos ayudarlos no solo a usar un sistema nuevo, sino a trabajar mejor. Si todos hacemos lo que tenemos que hacer, en 3 semanas están operando con el nuevo sistema.",phrase:"Nosotros no venimos solo a configurar un sistema. Venimos a ayudarlos a que el negocio funcione mejor.",bullets:["Traemos know-how real del negocio corralonero, no solo tecnología","Explicá cómo es el proceso de implementación paso a paso","Definí un quick win para la primera semana que genere confianza","Compromiso mutuo: si todos cumplen, en 3 semanas están operando con SYGEMAT"],fields:[
+  {phase:"kickoff",title:"Método y objetivos de corto plazo",content:"De nuestro lado van a encontrar método, acompañamiento y orden. Pero además de la tecnología, traemos experiencia real de cómo funcionan los corralones por dentro: los problemas del día a día, los procesos que traban, las cosas que se pueden hacer mejor.\n\nNo somos solo un proveedor de software. Conocemos el negocio y por eso podemos ayudarlos no solo a usar un sistema nuevo, sino a trabajar mejor. Si todos hacemos lo que tenemos que hacer, en poco tiempo están operando con el nuevo sistema.",phrase:"Nosotros no venimos solo a configurar un sistema. Venimos a ayudarlos a que el negocio funcione mejor.",bullets:["Traemos know-how real del negocio corralonero, no solo tecnología","Explicá cómo es el proceso de implementación paso a paso","Definí un quick win para la primera semana que genere confianza","Compromiso mutuo: si todos cumplen, en el plazo acordado están operando con SYGEMAT"],fields:[
+    {key:"criterioExitoKickoff",label:"¿Qué tendría que pasar para que consideres esta implementación exitosa?",type:"textarea",placeholder:"Preguntarle directo al cliente en el kickoff..."},
     {key:"cadencia",label:"Cadencia de seguimiento acordada",type:"select",options:["Semanal","Bisemanal","Según necesidad"]},
   ]},
   {phase:"kickoff",title:"Parte operativa",content:"Ahora vamos a la parte concreta. Acá es donde relevamos cómo trabajan hoy, definimos la migración de datos, configuración inicial, agenda de capacitación y los próximos pasos inmediatos.\n\nEsta parte la manejamos con un proceso probado y los vamos guiando en cada paso.",phrase:"Ahora sí, vamos a lo concreto. Esto es lo que necesitamos para arrancar.",bullets:["Esta sección sigue el proceso de implementación estándar de SYGEMAT","Relevar el proceso actual del cliente (cómo trabajan hoy)","Definir alcance de migración de datos","Configuración inicial del sistema","Agenda de capacitación y cronograma","Próximos pasos inmediatos con fechas"],fields:[
@@ -149,15 +150,13 @@ const STEPS=[
     {key:"proximoPaso",label:"Próximo paso inmediato",type:"textarea",placeholder:"¿Qué se hace mañana?"},
     {key:"notasCierre",label:"Observaciones generales del kickoff",type:"textarea",placeholder:"Cualquier nota o tema que haya surgido..."},
   ]},
-  {phase:"cierre",title:"Checklist final",content:"Antes de dar por cerrado el kickoff, verificá que no quedó nada suelto.",phrase:"Si no queda claro el problema, el compromiso y el siguiente paso, el kickoff quedó incompleto.",checklist:["Se recuperaron y validaron los dolores del cliente","El cliente entiende el sentido estratégico del proyecto","Quedó claro qué compromiso esperamos del cliente","Se definieron roles: super user, carga de artículos y contable","Se marcaron objetivos concretos de corto plazo (3 semanas)","Se acordó la fecha de go-live","Se definió la cadencia de seguimiento (reuniones periódicas)","Hay próximos pasos con responsable y fecha","Se acordó cómo y cuándo será la próxima reunión","Se va a enviar minuta con acuerdos y pendientes"]},
+  {phase:"cierre",title:"Checklist final",content:"Antes de dar por cerrado el kickoff, verificá que no quedó nada suelto.",phrase:"Si no queda claro el problema, el compromiso y el siguiente paso, el kickoff quedó incompleto.",checklist:["Se recuperaron y validaron los dolores del cliente","El cliente entiende el sentido estratégico del proyecto","Quedó claro qué compromiso esperamos del cliente","Se definieron roles: super user, carga de artículos y contable","Se marcaron objetivos concretos de corto plazo","Se acordó la fecha de go-live","Se definió la cadencia de seguimiento (reuniones periódicas)","Hay próximos pasos con responsable y fecha","Se acordó cómo y cuándo será la próxima reunión","Se va a enviar minuta con acuerdos y pendientes"]},
 ];
 const PH=[{key:"prep",label:"Handoff Ventas"},{key:"kickoff",label:"Kickoff"},{key:"cierre",label:"Cierre"}];
 
 /* ═══ HELPER: default goLive ═══ */
 function calcGoLive(){
-  const d=new Date();d.setDate(d.getDate()+21);
-  const day=d.getDay();if(day===0)d.setDate(d.getDate()+1);if(day===6)d.setDate(d.getDate()+2);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  return "";/* Sin fecha por defecto — la define el cliente en el kickoff */
 }
 
 /* ═══ APP ═══ */
@@ -327,7 +326,7 @@ function App(){
         /* Only overwrite if current field is empty, or merge for textarea fields */
         if(!merged[k]||merged[k].trim()===""){
           merged[k]=p[k];
-        }else if(["vendido","compromisos","impacto","sensibilidades","criterioExito","alertas",
+        }else if(["vendido","compromisos","impacto","sensibilidades","criterioExito","criterioExitoKickoff","alertas",
           "obsProcesoActual","obsValidacion","acuerdos","pendientes","proximoPaso","notasCierre",
           "sistemaActual","fueraAlcance","dificultadVenta","motivoCompra"].includes(k)){
           /* For textarea fields with existing content, append */
@@ -349,7 +348,7 @@ function App(){
     rolSuperUser:"Super user",rolArticulos:"Carga artículos",rolContable:"Contable",
     obsProcesoActual:"Obs. proceso actual",obsValidacion:"Obs. validación",
     acuerdos:"Acuerdos",pendientes:"Pendientes",proximoPaso:"Próximo paso",
-    notasCierre:"Notas cierre",cadencia:"Cadencia",
+    notasCierre:"Notas cierre",cadencia:"Cadencia",criterioExitoKickoff:"Criterio éxito (kickoff)",
   };
 
   const ib={width:"100%",padding:"13px 18px",background:t.inputBg,border:`1px solid ${t.borderInput}`,borderRadius:10,color:t.text,fontSize:16,outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"all 0.2s"};
